@@ -160,12 +160,217 @@ def health():
     }), 200
 
 
-if __name__ == '__main__':
-    # Load the model before starting the app
+def run_test_cases():
+    """
+    Run test cases to verify the Flask application and prediction functionality.
+    
+    Test Cases:
+    -----------
+    1. Load Model Test: Verify the model loads successfully from pickle file
+    2. Predict Endpoint Test: Send test data to /predict and validate response
+    3. Health Check Test: Verify /health endpoint confirms model is loaded
+    4. Input Validation Test: Test with invalid inputs to ensure error handling
+    
+    How to Run:
+    -----------
+    1. Save this file (app.py)
+    2. Run in terminal: python3.13 app.py --test
+       OR manually import and call: python3.13 -c "from app import run_test_cases; run_test_cases()"
+    3. Check console output for PASS/FAIL results
+    """
+    print("\n" + "="*70)
+    print("RUNNING TEST CASES FOR HIERARCHICAL CLUSTERING FLASK APP")
+    print("="*70 + "\n")
+    
+    # TEST 1: Load Model
+    print("TEST 1: Loading Model")
+    print("-" * 70)
     if load_model():
-        print("Starting Flask application on http://0.0.0.0:5000")
-        # Run Flask app (set debug=True for development, False for production)
-        app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
+        print("✓ PASS: Model loaded successfully")
+        print(f"  - Cluster centers available: {model_data.get('cluster_centers') is not None}")
+        if model_data.get('cluster_centers') is not None:
+            print(f"  - Number of clusters: {len(model_data['cluster_centers'])}")
     else:
-        print("Failed to load model. Exiting.", file=sys.stderr)
-        exit(1)
+        print("✗ FAIL: Model failed to load")
+        return
+    
+    # TEST 2: Health Check Endpoint
+    print("\nTEST 2: Health Check Endpoint (/health)")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.get('/health')
+        if response.status_code == 200:
+            data = response.get_json()
+            print(f"✓ PASS: Health check endpoint responds with status 200")
+            print(f"  - Status: {data.get('status')}")
+            print(f"  - Model loaded: {data.get('model_loaded')}")
+            print(f"  - Cluster centers available: {data.get('cluster_centers_available')}")
+        else:
+            print(f"✗ FAIL: Health check returned status {response.status_code}")
+    
+    # TEST 3: Valid Prediction Test (High Income, High Spending)
+    print("\nTEST 3: Valid Prediction - High Income & High Spending Score")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.post('/predict',
+            json={'income': 80000, 'spending_score': 90},
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code == 200:
+            data = response.get_json()
+            print(f"✓ PASS: Prediction successful")
+            print(f"  - Input: Income=${data['income']}k, Spending Score={data['spending_score']}")
+            print(f"  - Predicted Cluster: {data['cluster']}")
+            print(f"  - Message: {data['message']}")
+        else:
+            print(f"✗ FAIL: Prediction returned status {response.status_code}")
+    
+    # TEST 4: Valid Prediction Test (Low Income, Low Spending)
+    print("\nTEST 4: Valid Prediction - Low Income & Low Spending Score")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.post('/predict',
+            json={'income': 25000, 'spending_score': 20},
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code == 200:
+            data = response.get_json()
+            print(f"✓ PASS: Prediction successful")
+            print(f"  - Input: Income=${data['income']}k, Spending Score={data['spending_score']}")
+            print(f"  - Predicted Cluster: {data['cluster']}")
+            print(f"  - Message: {data['message']}")
+        else:
+            print(f"✗ FAIL: Prediction returned status {response.status_code}")
+    
+    # TEST 5: Valid Prediction Test (Medium Values)
+    print("\nTEST 5: Valid Prediction - Medium Income & Medium Spending Score")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.post('/predict',
+            json={'income': 50000, 'spending_score': 50},
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code == 200:
+            data = response.get_json()
+            print(f"✓ PASS: Prediction successful")
+            print(f"  - Input: Income=${data['income']}k, Spending Score={data['spending_score']}")
+            print(f"  - Predicted Cluster: {data['cluster']}")
+            print(f"  - Message: {data['message']}")
+        else:
+            print(f"✗ FAIL: Prediction returned status {response.status_code}")
+    
+    # TEST 6: Missing Input Parameters
+    print("\nTEST 6: Error Handling - Missing Input Parameters")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.post('/predict',
+            json={'income': 50000},  # Missing spending_score
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code == 400:
+            data = response.get_json()
+            print(f"✓ PASS: Correctly rejected missing parameter")
+            print(f"  - Error message: {data['error']}")
+        else:
+            print(f"✗ FAIL: Should return 400 status for missing parameter, got {response.status_code}")
+    
+    # TEST 7: Invalid Spending Score (Out of Range)
+    print("\nTEST 7: Error Handling - Invalid Spending Score (>100)")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.post('/predict',
+            json={'income': 50000, 'spending_score': 150},
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code == 400:
+            data = response.get_json()
+            print(f"✓ PASS: Correctly rejected invalid spending score")
+            print(f"  - Error message: {data['error']}")
+        else:
+            print(f"✗ FAIL: Should return 400 status for invalid score, got {response.status_code}")
+    
+    # TEST 8: Negative Income
+    print("\nTEST 8: Error Handling - Negative Income")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.post('/predict',
+            json={'income': -5000, 'spending_score': 50},
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code == 400:
+            data = response.get_json()
+            print(f"✓ PASS: Correctly rejected negative income")
+            print(f"  - Error message: {data['error']}")
+        else:
+            print(f"✗ FAIL: Should return 400 status for negative income, got {response.status_code}")
+    
+    # TEST 9: Invalid Data Type
+    print("\nTEST 9: Error Handling - Invalid Data Type (String instead of Number)")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.post('/predict',
+            json={'income': 'invalid', 'spending_score': 50},
+            headers={'Content-Type': 'application/json'}
+        )
+        if response.status_code == 400:
+            data = response.get_json()
+            print(f"✓ PASS: Correctly rejected invalid data type")
+            print(f"  - Error message: {data['error']}")
+        else:
+            print(f"✗ FAIL: Should return 400 status for invalid type, got {response.status_code}")
+    
+    # TEST 10: Home Page Route
+    print("\nTEST 10: Home Page Route (/)")
+    print("-" * 70)
+    with app.test_client() as client:
+        response = client.get('/')
+        if response.status_code == 200 and 'Cluster Predictor' in response.get_data(as_text=True):
+            print(f"✓ PASS: Home page loads successfully")
+            print(f"  - Status code: {response.status_code}")
+            print(f"  - Contains page title: Yes")
+        else:
+            print(f"✗ FAIL: Home page not loading correctly")
+    
+    print("\n" + "="*70)
+    print("TEST SUITE COMPLETED")
+    print("="*70 + "\n")
+
+
+if __name__ == '__main__':
+    """
+    Main entry point for the Flask application.
+    
+    Modes:
+    ------
+    1. Normal Mode: Start the Flask server (default)
+       Command: python3.13 app.py
+    
+    2. Test Mode: Run test cases to verify functionality
+       Command: python3.13 app.py --test
+    
+    Environment:
+    -------------
+    - Host: 0.0.0.0 (accessible from any interface)
+    - Port: 5000 (default Flask port)
+    - Debug Mode: False (for production safety)
+    - Threading: Enabled (supports concurrent requests)
+    """
+    
+    # Check if --test flag is passed
+    if len(sys.argv) > 1 and sys.argv[1] == '--test':
+        # Run test cases
+        run_test_cases()
+    else:
+        # Load the model before starting the app
+        if load_model():
+            print("Starting Flask application on http://0.0.0.0:5000")
+            print("Available endpoints:")
+            print("  - GET  /              (Home page with prediction form)")
+            print("  - POST /predict       (Submit prediction request)")
+            print("  - GET  /health        (Health check)")
+            print("\nPress Ctrl+C to stop the server\n")
+            # Run Flask app (set debug=True for development, False for production)
+            app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
+        else:
+            print("Failed to load model. Exiting.", file=sys.stderr)
+            exit(1)

@@ -240,7 +240,8 @@
 
             // Show loading spinner
             document.getElementById('loading').style.display = 'block';
-            document.getElementById('resultContainer').style.display = 'none';
+            document.getElementById('resultContainer').innerHTML = '';
+            document.getElementById('resultContainer').className = 'result-container';
 
             try {
                 // Send prediction request to Flask backend
@@ -263,7 +264,7 @@
 
                 // Display result
                 const resultContainer = document.getElementById('resultContainer');
-                if (response.ok) {
+                if (response.ok && data.success) {
                     resultContainer.innerHTML = `
                         <h3>✅ Prediction Successful</h3>
                         <p><strong>Annual Income:</strong> $${data.income.toLocaleString()}k</p>
@@ -271,12 +272,14 @@
                         <div class="cluster-badge">Cluster ${data.cluster}</div>
                     `;
                     resultContainer.className = 'result-container success';
+                    resultContainer.style.display = 'block';
                 } else {
                     resultContainer.innerHTML = `
                         <h3>❌ Error</h3>
-                        <p>${data.error}</p>
+                        <p>${data.error || 'An error occurred'}</p>
                     `;
                     resultContainer.className = 'result-container error';
+                    resultContainer.style.display = 'block';
                 }
             } catch (error) {
                 document.getElementById('loading').style.display = 'none';
